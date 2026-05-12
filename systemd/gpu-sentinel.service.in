@@ -1,0 +1,11 @@
+[Unit]
+Description=GPU Sentinel Feishu notifier
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+ExecStart=/usr/bin/env python3 @INSTALL_DIR@/gpu_sentinel.py
+Environment=PYTHONUNBUFFERED=1
+TimeoutStartSec=120

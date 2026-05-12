@@ -1,0 +1,7 @@
+{
+  "ssh_command": "ssh USER@HOST",
+  "ssh_timeout_seconds": 18,
+  "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/REPLACE_ME",
+  "first_run_sends": true,
+  "max_processes_in_card": 50
+}
