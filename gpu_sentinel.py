@@ -589,13 +589,6 @@ def process_name_detail_elements(apps: list[dict[str, Any]], limit: int) -> list
         command = command_detail(app)
         details = (
             f"**PID {app.get('pid')} | GPU{app.get('gpu_index', '?')} | {app.get('user', '?')} | {app.get('process_name') or '-'}**\n"
-            f"**PID** {app.get('pid')}\n"
-            f"**GPU** {app.get('gpu_index', '?')}\n"
-            f"**User** {app.get('user', '?')}\n"
-            f"**Process** `{app.get('process_name') or '-'}`\n"
-            f"**Memory** {mb_to_gib(app.get('used_memory_mb', 0))}\n"
-            f"**Runtime** {fmt_duration(app.get('etimes_seconds'))}\n"
-            f"**Started** {app.get('started_at', '-')}\n"
             f"**Command**\n{markdown_code_block(command)}"
         )
         elements.append(markdown(details))
