@@ -580,21 +580,15 @@ def markdown_code_block(content: str) -> str:
     return f"```text\n{safe}\n```"
 
 
-def process_panel_title(app: dict[str, Any]) -> str:
-    return (
-        f"PID {app.get('pid')} | GPU{app.get('gpu_index', '?')} | "
-        f"{app.get('user', '?')} | {app.get('process_name') or '-'}"
-    )
-
-
-def process_name_panels(apps: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+def process_name_detail_elements(apps: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     if not apps:
         return []
 
-    panels: list[dict[str, Any]] = []
-    for index, app in enumerate(apps[:limit], start=1):
+    elements: list[dict[str, Any]] = [markdown("**PID process names**")]
+    for app in apps[:limit]:
         command = command_detail(app)
         details = (
+            f"**PID {app.get('pid')} | GPU{app.get('gpu_index', '?')} | {app.get('user', '?')} | {app.get('process_name') or '-'}**\n"
             f"**PID** {app.get('pid')}\n"
             f"**GPU** {app.get('gpu_index', '?')}\n"
             f"**User** {app.get('user', '?')}\n"
@@ -604,30 +598,32 @@ def process_name_panels(apps: list[dict[str, Any]], limit: int) -> list[dict[str
             f"**Started** {app.get('started_at', '-')}\n"
             f"**Command**\n{markdown_code_block(command)}"
         )
-        panels.append(
-            {
-                "tag": "collapsible_panel",
-                "element_id": f"pid_panel_{index}",
-                "expanded": False,
-                "header": {
-                    "title": {"tag": "plain_text", "content": process_panel_title(app)},
-                    "icon": {
-                        "tag": "standard_icon",
-                        "token": "down-small-ccm_outlined",
-                        "size": "16px 16px",
-                    },
-                    "icon_position": "right",
-                    "icon_expanded_angle": -180,
-                },
-                "border": {"color": "grey", "corner_radius": "5px"},
-                "padding": "8px 8px 8px 8px",
-                "vertical_spacing": "8px",
-                "elements": [markdown(details)],
-            }
-        )
+        elements.append(markdown(details))
     if len(apps) > limit:
-        panels.append(markdown(f"还有 {len(apps) - limit} 个进程，完整数据保存在本机 SQLite。"))
-    return panels
+        elements.append(markdown(f"还有 {len(apps) - limit} 个进程，完整数据保存在本机 SQLite。"))
+    return elements
+
+
+def collapsible_details(elements: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "tag": "collapsible_panel",
+        "element_id": "gpu_sentinel_details",
+        "expanded": False,
+        "header": {
+            "title": {"tag": "plain_text", "content": "GPU details"},
+            "icon": {
+                "tag": "standard_icon",
+                "token": "down-small-ccm_outlined",
+                "size": "16px 16px",
+            },
+            "icon_position": "right",
+            "icon_expanded_angle": -180,
+        },
+        "border": {"color": "grey", "corner_radius": "5px"},
+        "padding": "8px 8px 8px 8px",
+        "vertical_spacing": "8px",
+        "elements": elements,
+    }
 
 
 def trigger_reason_line(label: str, app: dict[str, Any]) -> str:
@@ -654,7 +650,7 @@ def trigger_reason_text(diff: dict[str, Any], limit: int) -> str:
         shown += 1
     remaining = len(diff["new_processes"]) + len(diff["ended_processes"]) - shown
     if remaining > 0:
-        lines.append(f"还有 {remaining} 条触发原因，详见下方进程变化列表。")
+        lines.append(f"还有 {remaining} 条触发原因，展开下方详情查看完整进程信息。")
     return "\n".join(lines) if lines else "本次是格式预览或基线初始化。"
 
 
@@ -683,25 +679,28 @@ def build_card(snapshot: dict[str, Any], diff: dict[str, Any], config: dict[str,
     apps = snapshot["compute_apps"]
     max_processes = int(config["max_processes_in_card"])
     diff_text = f"+{new_count} new / -{ended_count} finished"
-    elements: list[dict[str, Any]] = [
+    detail_elements: list[dict[str, Any]] = [
         markdown(
             f"**Collected**\n{snapshot['collected_at']}\n\n"
             f"**Diff**\n{diff_text}\n\n"
             f"**System**\n{compact_system_summary(snapshot['system'])}"
         ),
         {"tag": "hr"},
-        markdown(f"**触发原因**\n{trigger_reason_text(diff, max_processes)}"),
-        {"tag": "hr"},
         markdown("**GPU overview**"),
     ]
     for gpu in snapshot["gpus"]:
-        elements.append(gpu_card_element(gpu, apps))
+        detail_elements.append(gpu_card_element(gpu, apps))
 
     if apps:
-        elements.extend(current_workload_elements(apps, max_processes))
-        elements.append(markdown("**PID process names**"))
-        elements.extend(process_name_panels(apps, max_processes))
-    elements.append(markdown("*完整历史和原始快照保存在本机 gpu_sentinel.sqlite3。*"))
+        detail_elements.extend(current_workload_elements(apps, max_processes))
+        detail_elements.extend(process_name_detail_elements(apps, max_processes))
+    detail_elements.append(markdown("*完整历史和原始快照保存在本机 gpu_sentinel.sqlite3。*"))
+
+    elements: list[dict[str, Any]] = [
+        markdown(f"**触发原因**\n{trigger_reason_text(diff, max_processes)}"),
+        {"tag": "hr"},
+        collapsible_details(detail_elements),
+    ]
     return {
         "msg_type": "interactive",
         "card": {
