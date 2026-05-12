@@ -534,25 +534,6 @@ def compact_system_summary(system: dict[str, Any]) -> str:
     return f"{system.get('hostname', '-')}\nCPU load 1m/5m/15m: {load}{cpu_note}\nup {uptime} | mem {mem_text}"
 
 
-def process_brief(app: dict[str, Any]) -> str:
-    return (
-        f"GPU{app.get('gpu_index', '?')} | PID {app.get('pid')} | "
-        f"{app.get('user', '?')} | {mb_to_gib(app.get('used_memory_mb', 0))} | "
-        f"{fmt_duration(app.get('etimes_seconds'))} | "
-        f"{short_command(app.get('process_name') or app.get('command') or '-', 36)}"
-    )
-
-
-def chunk_processes(apps: list[dict[str, Any]], limit: int) -> str:
-    if not apps:
-        return "-"
-    shown = apps[:limit]
-    lines = [f"- {process_brief(app)}" for app in shown]
-    if len(apps) > limit:
-        lines.append(f"- ... {len(apps) - limit} more process(es) omitted")
-    return "\n".join(lines)
-
-
 def markdown(content: str) -> dict[str, str]:
     return {"tag": "markdown", "content": content}
 
@@ -563,8 +544,8 @@ def gpu_card_element(gpu: dict[str, Any], apps: list[dict[str, Any]]) -> dict[st
     thermal = f"{gpu['temperature_c']} C / {gpu['power_w']:.1f} W"
     return markdown(
         f"**GPU {gpu['index']}**\n"
-        f"Workload: {workload_text(gpu_apps)} | Util: {util_inline_text(gpu)}\n"
-        f"Memory: {memory} | Temp / Power: {thermal}"
+        f"**Workload**: {workload_text(gpu_apps)} | **Util**: {util_inline_text(gpu)}\n"
+        f"**Memory**: {memory} | **Temp / Power**: {thermal}"
     )
 
 
@@ -716,10 +697,6 @@ def build_card(snapshot: dict[str, Any], diff: dict[str, Any], config: dict[str,
     for gpu in snapshot["gpus"]:
         elements.append(gpu_card_element(gpu, apps))
 
-    if diff["new_processes"]:
-        elements.append(markdown(f"**New GPU processes**\n{chunk_processes(diff['new_processes'], max_processes)}"))
-    if diff["ended_processes"]:
-        elements.append(markdown(f"**Finished GPU processes**\n{chunk_processes(diff['ended_processes'], max_processes)}"))
     if apps:
         elements.extend(current_workload_elements(apps, max_processes))
         elements.append(markdown("**PID process names**"))
